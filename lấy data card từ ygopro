@@ -1,5 +1,5 @@
-b1:dán lên trình duyệt:https://db.ygoprodeck.com/api/v7/cardinfo.php
-b2:w+s để tải về
-b3:tạo folder tên mod trong đó tạo folder :picr 
-b4:trong mod:ctrl+chuột phải -->power shell-->coppy lệnh tải all card dán vô
-b5:sau này cập nhật thì tải tại api,kèm chạy lệnh tải từ ngày mấy tới ngày mấy 
+
+b1:tạo folder tên mod trong đó tạo folder :picr và pics 
+b2:trong mod:ctrl+chuột phải -->power shell-->coppy lệnh tải all card dán vô
+b3:ctrl+A ở các ảnh ở pics dán dô thay thế  pics ở file gốc 
+cập nhật: chạy lệnh tải từ ngày mấy tới ngày mấy 
