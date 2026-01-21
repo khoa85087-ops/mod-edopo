@@ -1,0 +1,51 @@
+# ===== FILE DUY NHẤT – CHẠY 1 LẦN, KHÔNG DÙNG $filtered, KHÔNG DÁN TAY =====
+# Tải ảnh card YGOPRODeck theo ngày 2025-11-12 → 2026-01-20
+# Lưu ảnh vào thư mục picr
+# Đồng thời lưu JSON tổng
+
+$START_DATE = "2025-11-12"
+$END_DATE   = "2026-01-20"
+$PAGE_SIZE  = 100
+$OFFSET     = 0
+$PIC_DIR    = "picr"
+
+if (-not (Test-Path $PIC_DIR)) {
+    New-Item -ItemType Directory -Path $PIC_DIR | Out-Null
+}
+
+$allCards = @()
+
+while ($true) {
+    $url = "https://db.ygoprodeck.com/api/v7/cardinfo.php?startdate=$START_DATE&enddate=$END_DATE&num=$PAGE_SIZE&offset=$OFFSET"
+
+    try {
+        $resp = Invoke-RestMethod -Uri $url -TimeoutSec 30
+    } catch {
+        break
+    }
+
+    if (-not $resp.data -or $resp.data.Count -eq 0) {
+        break
+    }
+
+    foreach ($card in $resp.data) {
+        $allCards += $card
+
+        if ($card.card_images -and $card.card_images.Count -gt 0) {
+            $img = $card.card_images[0]
+            $out = "$PIC_DIR\$($img.id).jpg"
+
+            if (-not (Test-Path $out)) {
+                try {
+                    Invoke-WebRequest -Uri $img.image_url -OutFile $out -TimeoutSec 30
+                } catch {}
+            }
+        }
+    }
+
+    $OFFSET += $PAGE_SIZE
+}
+
+$allCards |
+  ConvertTo-Json -Depth 10 |
+  Set-Content "ygopro_cards_${START_DATE}_to_${END_DATE}.json" -Encoding UTF8
