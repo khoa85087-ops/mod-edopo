@@ -1,0 +1,49 @@
+# ===== FILE DUY NHẤT – TẢI TOÀN BỘ CARD + ẢNH =====
+# Từ ngày đầu tiên → hiện tại
+# Lưu ảnh vào picr
+# Lưu JSON tổng
+
+$PAGE_SIZE = 1000
+$OFFSET    = 0
+$PIC_DIR   = "picr"
+
+if (-not (Test-Path $PIC_DIR)) {
+    New-Item -ItemType Directory -Path $PIC_DIR | Out-Null
+}
+
+$allCards = @()
+
+while ($true) {
+    $url = "https://db.ygoprodeck.com/api/v7/cardinfo.php?num=$PAGE_SIZE&offset=$OFFSET"
+
+    try {
+        $resp = Invoke-RestMethod -Uri $url -TimeoutSec 30
+    } catch {
+        break
+    }
+
+    if (-not $resp.data -or $resp.data.Count -eq 0) {
+        break
+    }
+
+    foreach ($card in $resp.data) {
+        $allCards += $card
+
+        if ($card.card_images -and $card.card_images.Count -gt 0) {
+            $img = $card.card_images[0]
+            $out = "$PIC_DIR\$($img.id).jpg"
+
+            if (-not (Test-Path $out)) {
+                try {
+                    Invoke-WebRequest -Uri $img.image_url -OutFile $out -TimeoutSec 30
+                } catch {}
+            }
+        }
+    }
+
+    $OFFSET += $PAGE_SIZE
+}
+
+$allCards |
+  ConvertTo-Json -Depth 10 |
+  Set-Content "ygoprodeck_all_cards.json" -Encoding UTF8
