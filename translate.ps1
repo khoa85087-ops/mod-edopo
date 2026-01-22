@@ -11,7 +11,7 @@ $ExcludeWords = @(
     "program","files","local","appdata","profile"
 )
 
-# ===== HÀM WRAP (XUỐNG DÒNG KHI GẶP •) =====
+# ===== HÀM WRAP (XUỐNG DÒNG KHI KÝ TỰ ĐẶC BIỆT + CHỮ HOA) =====
 function Write-WrappedText {
     param (
         [string]$Text,
@@ -21,31 +21,16 @@ function Write-WrappedText {
     $width = $Host.UI.RawUI.WindowSize.Width - 4
     if ($width -lt 40) { $width = 40 }
 
-    # Tách theo dòng gốc trước
-    $lines = $Text -split "`r?`n"
+    # Chuẩn hóa: chèn xuống dòng trước ký tự đặc biệt nếu sau nó là chữ HOA
+    $normalized = $Text -replace '([•\-\*\:\;→])\s*([A-Z])', "`n`$1 `$2"
+
+    $lines = $normalized -split "`r?`n"
 
     foreach ($rawLine in $lines) {
-
-        # Nếu dòng bắt đầu bằng chấm tròn → in riêng 1 dòng
-        if ($rawLine.TrimStart() -match '^•') {
-            Write-Host $rawLine.Trim() -ForegroundColor $Color
-            continue
-        }
-
         $words = $rawLine -split '\s+'
         $line = ""
 
         foreach ($word in $words) {
-
-            # Nếu gặp • giữa dòng → xuống dòng mới
-            if ($word -match '^•') {
-                if ($line) {
-                    Write-Host $line -ForegroundColor $Color
-                }
-                $line = $word
-                continue
-            }
-
             if (($line.Length + $word.Length + 1) -gt $width) {
                 Write-Host $line -ForegroundColor $Color
                 $line = $word
