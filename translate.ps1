@@ -4,14 +4,14 @@ Add-Type -AssemblyName PresentationCore
 # ===== DANH SÁCH TỪ ĐÃ LƯU =====
 $WordList = @()
 
-# ===== DANH SÁCH TỪ CẤM (LỆNH / HỆ THỐNG) =====
+# ===== DANH SÁCH TỪ CẤM =====
 $ExcludeWords = @(
     "translate","powershell","script","ps1","cd","dir","cls",
     "windows","system32","users","desktop","documents",
     "program","files","local","appdata","profile"
 )
 
-# ===== HÀM WRAP THÔNG MINH =====
+# ===== HÀM WRAP (XUỐNG DÒNG KHI GẶP •) =====
 function Write-WrappedText {
     param (
         [string]$Text,
@@ -21,18 +21,43 @@ function Write-WrappedText {
     $width = $Host.UI.RawUI.WindowSize.Width - 4
     if ($width -lt 40) { $width = 40 }
 
-    $words = $Text -split '\s+'
-    $line = ""
+    # Tách theo dòng gốc trước
+    $lines = $Text -split "`r?`n"
 
-    foreach ($word in $words) {
-        if (($line.Length + $word.Length + 1) -gt $width) {
+    foreach ($rawLine in $lines) {
+
+        # Nếu dòng bắt đầu bằng chấm tròn → in riêng 1 dòng
+        if ($rawLine.TrimStart() -match '^•') {
+            Write-Host $rawLine.Trim() -ForegroundColor $Color
+            continue
+        }
+
+        $words = $rawLine -split '\s+'
+        $line = ""
+
+        foreach ($word in $words) {
+
+            # Nếu gặp • giữa dòng → xuống dòng mới
+            if ($word -match '^•') {
+                if ($line) {
+                    Write-Host $line -ForegroundColor $Color
+                }
+                $line = $word
+                continue
+            }
+
+            if (($line.Length + $word.Length + 1) -gt $width) {
+                Write-Host $line -ForegroundColor $Color
+                $line = $word
+            } else {
+                if ($line) { $line += " " + $word } else { $line = $word }
+            }
+        }
+
+        if ($line) {
             Write-Host $line -ForegroundColor $Color
-            $line = $word
-        } else {
-            if ($line) { $line += " " + $word } else { $line = $word }
         }
     }
-    if ($line) { Write-Host $line -ForegroundColor $Color }
 }
 
 # ===== HÀM DỊCH =====
@@ -45,14 +70,11 @@ function Translate-Text {
     return ($result.sentences | ForEach-Object { $_.trans }) -join ""
 }
 
-# ===== LẤY TỪ NGẪU NHIÊN (ĐÃ LỌC) =====
+# ===== LẤY TỪ NGẪU NHIÊN =====
 function Get-RandomWord {
     param ([string]$Text)
 
-    # Nếu clipboard giống lệnh PowerShell → bỏ luôn
-    if ($Text -match '^\s*(cd|dir|cls|\.\\|\.\/)') {
-        return $null
-    }
+    if ($Text -match '^\s*(cd|dir|cls|\.\\|\.\/)') { return $null }
 
     $words = $Text.ToLower() `
         -replace '[^a-z\s]', '' `
@@ -63,7 +85,6 @@ function Get-RandomWord {
         }
 
     if ($words.Count -eq 0) { return $null }
-
     return Get-Random -InputObject $words
 }
 
@@ -76,7 +97,6 @@ function Show-Header {
 
 Clear-Host
 Show-Header
-
 $lastText = ""
 
 while ($true) {
@@ -92,30 +112,26 @@ while ($true) {
     try {
         $translated = Translate-Text $text
 
-        # ===== LẤY TỪ NGẪU NHIÊN =====
         $word = Get-RandomWord $text
         if ($word -and ($WordList.word -notcontains $word)) {
-            $wordMeaning = Translate-Text $word
             $WordList += [PSCustomObject]@{
                 word    = $word
-                meaning = $wordMeaning
+                meaning = (Translate-Text $word)
             }
         }
 
-        # ===== REFRESH MÀN HÌNH =====
         Clear-Host
         Show-Header
 
         Write-Host "EN:" -ForegroundColor Cyan
         Write-WrappedText $text Gray
+
         Write-Host ""
         Write-Host "VI:" -ForegroundColor Green
         Write-WrappedText $translated DarkGreen
 
-        # ===== WORD LIST (KHÔNG BỊ XÓA) =====
         Write-Host ""
         Write-Host "=== TU VUNG NGAU NHIEN ===" -ForegroundColor Yellow
-
         foreach ($item in $WordList | Select-Object -Last 8) {
             Write-Host ("• " + $item.word) -ForegroundColor Cyan -NoNewline
             Write-Host ("  →  " + $item.meaning) -ForegroundColor DarkGreen
@@ -127,5 +143,3 @@ while ($true) {
         Write-Host "Loi khi dich!" -ForegroundColor Red
     }
 }
-
-
