@@ -1,7 +1,2 @@
-power shell 
-
-cd C:\
-cd Translate
-sau đó
+cd C:\Translate
 .\translate.ps1
-
