@@ -1,47 +1,58 @@
 
-
-# ================== THIẾT LẬP CỬA SỔ ==================
-$Host.UI.RawUI.BufferSize = New-Object Management.Automation.Host.Size(120, 300)
-$Host.UI.RawUI.WindowSize = New-Object Management.Automation.Host.Size(120, 40)
-
 Add-Type -AssemblyName PresentationCore
 
-# ================== DANH SÁCH TỪ VỰNG ==================
+# ===== DANH SÁCH TỪ ĐÃ LƯU =====
 $WordList = @()
 
-# ❗ TỪ KHÓA KHÔNG LẤY (sửa nếu muốn)
+# ===== DANH SÁCH TỪ CẤM (LỆNH / HỆ THỐNG) =====
 $ExcludeWords = @(
-    "translate","powershell","script","ps1",
-    "cd","dir","cls","windows","system32"
+    "translate","powershell","script","ps1","cd","dir","cls",
+    "windows","system32","users","desktop","documents",
+    "program","files","local","appdata","profile"
 )
 
-# ================== HÀM DỊCH (GIỮ NGUYÊN DÒNG) ==================
+# ===== HÀM WRAP THÔNG MINH =====
+function Write-WrappedText {
+    param (
+        [string]$Text,
+        [ConsoleColor]$Color = [ConsoleColor]::Gray
+    )
+
+    $width = $Host.UI.RawUI.WindowSize.Width - 4
+    if ($width -lt 40) { $width = 40 }
+
+    $words = $Text -split '\s+'
+    $line = ""
+
+    foreach ($word in $words) {
+        if (($line.Length + $word.Length + 1) -gt $width) {
+            Write-Host $line -ForegroundColor $Color
+            $line = $word
+        } else {
+            if ($line) { $line += " " + $word } else { $line = $word }
+        }
+    }
+    if ($line) { Write-Host $line -ForegroundColor $Color }
+}
+
+# ===== HÀM DỊCH =====
 function Translate-Text {
     param ([string]$Text)
 
-    $lines = $Text -split "`r?`n"
-    $out = @()
-
-    foreach ($line in $lines) {
-        if ([string]::IsNullOrWhiteSpace($line)) {
-            $out += ""
-            continue
-        }
-
-        $encoded = [uri]::EscapeDataString($line)
-        $url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=vi&dt=t&dj=1&q=$encoded"
-        $result = Invoke-RestMethod -Uri $url -TimeoutSec 10
-        $out += ($result.sentences | ForEach-Object { $_.trans }) -join ""
-    }
-
-    return ($out -join "`n")
+    $encoded = [uri]::EscapeDataString($Text)
+    $url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=vi&dt=t&dj=1&q=$encoded"
+    $result = Invoke-RestMethod -Uri $url -TimeoutSec 10
+    return ($result.sentences | ForEach-Object { $_.trans }) -join ""
 }
 
-# ================== LẤY TỪ NGẪU NHIÊN ==================
+# ===== LẤY TỪ NGẪU NHIÊN (ĐÃ LỌC) =====
 function Get-RandomWord {
     param ([string]$Text)
 
-    if ($Text -match '^\s*(cd|dir|cls|\.\\)') { return $null }
+    # Nếu clipboard giống lệnh PowerShell → bỏ luôn
+    if ($Text -match '^\s*(cd|dir|cls|\.\\|\.\/)') {
+        return $null
+    }
 
     $words = $Text.ToLower() `
         -replace '[^a-z\s]', '' `
@@ -52,14 +63,15 @@ function Get-RandomWord {
         }
 
     if ($words.Count -eq 0) { return $null }
+
     return Get-Random -InputObject $words
 }
 
-# ================== HEADER ==================
+# ===== HEADER =====
 function Show-Header {
-    Write-Host "=== Dich Clipboard (GIU DINH DANG) ===" -ForegroundColor Cyan
+    Write-Host "=== Dich Clipboard (EN) + Tu Vung ===" -ForegroundColor Cyan
     Write-Host "Boi den van ban tieng Anh -> Ctrl+C" -ForegroundColor DarkGray
-    Write-Host "------------------------------------" -ForegroundColor DarkGray
+    Write-Host "--------------------------------" -ForegroundColor DarkGray
 }
 
 Clear-Host
@@ -67,7 +79,6 @@ Show-Header
 
 $lastText = ""
 
-# ================== LOOP CHÍNH ==================
 while ($true) {
     Start-Sleep -Milliseconds 700
     $text = Get-Clipboard -Raw
@@ -81,27 +92,29 @@ while ($true) {
     try {
         $translated = Translate-Text $text
 
-        # ---- TỪ VỰNG NGẪU NHIÊN ----
+        # ===== LẤY TỪ NGẪU NHIÊN =====
         $word = Get-RandomWord $text
         if ($word -and ($WordList.word -notcontains $word)) {
+            $wordMeaning = Translate-Text $word
             $WordList += [PSCustomObject]@{
                 word    = $word
-                meaning = (Translate-Text $word)
+                meaning = $wordMeaning
             }
         }
 
+        # ===== REFRESH MÀN HÌNH =====
         Clear-Host
         Show-Header
 
         Write-Host "EN:" -ForegroundColor Cyan
-        Write-Host $text -ForegroundColor Gray
-
+        Write-WrappedText $text Gray
         Write-Host ""
         Write-Host "VI:" -ForegroundColor Green
-        Write-Host $translated -ForegroundColor DarkGreen
+        Write-WrappedText $translated DarkGreen
 
+        # ===== WORD LIST (KHÔNG BỊ XÓA) =====
         Write-Host ""
-        Write-Host "=== TU VUNG DA LUU ===" -ForegroundColor Yellow
+        Write-Host "=== TU VUNG NGAU NHIEN ===" -ForegroundColor Yellow
 
         foreach ($item in $WordList | Select-Object -Last 8) {
             Write-Host ("• " + $item.word) -ForegroundColor Cyan -NoNewline
