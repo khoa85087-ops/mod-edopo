@@ -1,0 +1,152 @@
+Add-Type -AssemblyName PresentationCore
+
+# ===== DANH SÁCH TỪ ĐÃ LƯU =====
+$WordList = @()
+
+# ===== BỘ NHỚ CHỐNG LẶP =====
+$UsedWords = New-Object System.Collections.Generic.HashSet[string]
+
+# ===== DANH SÁCH TỪ CẤM =====
+$ExcludeWords = @(
+    "translate","translation","translator",
+    "powershell","script","ps1","cmd","console",
+    "cd","dir","cls","clear","exit",
+    "windows","system32","users","desktop","documents",
+    "program","files","local","appdata","profile",
+    "github","google","http","https","www","api",
+    "function","param","return","object","string",
+    "host","name","rawui","window","size",
+    "foreach","while","true","false","null",
+    "write","host","foregroundcolor","newline"
+)
+
+# ===== PHÁT HIỆN CODE / SCRIPT (QUAN TRỌNG) =====
+function Is-CodeText {
+    param ([string]$Text)
+
+    return (
+        $Text -match '\b(Add-Type|Write-Host|function|param|foreach|while|try|catch|\$[a-zA-Z_])\b' -or
+        $Text -match '^\s*#' -or
+        $Text -match '\{\s*$' -or
+        $Text -match '[-]{2,}'
+    )
+}
+
+# ===== WRAP TEXT =====
+function Write-WrappedText {
+    param (
+        [string]$Text,
+        [ConsoleColor]$Color = [ConsoleColor]::Gray
+    )
+
+    $width = $Host.UI.RawUI.WindowSize.Width - 4
+    if ($width -lt 40) { $width = 40 }
+
+    $lines = $Text -split "`r?`n"
+
+    foreach ($rawLine in $lines) {
+        $words = $rawLine -split '\s+'
+        $line = ""
+
+        foreach ($w in $words) {
+            if (($line.Length + $w.Length + 1) -gt $width) {
+                Write-Host $line -ForegroundColor $Color
+                $line = $w
+            } else {
+                if ($line) { $line += " $w" } else { $line = $w }
+            }
+        }
+
+        if ($line) {
+            Write-Host $line -ForegroundColor $Color
+        }
+    }
+}
+
+# ===== HÀM DỊCH =====
+function Translate-Text {
+    param ([string]$Text)
+
+    $encoded = [uri]::EscapeDataString($Text)
+    $url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=vi&dt=t&dj=1&q=$encoded"
+    $result = Invoke-RestMethod -Uri $url -TimeoutSec 10
+    return ($result.sentences | ForEach-Object { $_.trans }) -join ""
+}
+
+# ===== LẤY TỪ NGẪU NHIÊN (SẠCH) =====
+function Get-RandomWord {
+    param ([string]$Text)
+
+    if (Is-CodeText $Text) { return $null }
+
+    $words = $Text.ToLower() `
+        -replace '[^a-z\s]', ' ' `
+        -split '\s+' |
+        Where-Object {
+            $_.Length -ge 5 -and
+            ($ExcludeWords -notcontains $_) -and
+            (-not $UsedWords.Contains($_))
+        }
+
+    if ($words.Count -eq 0) { return $null }
+    return Get-Random -InputObject $words
+}
+
+# ===== HEADER =====
+function Show-Header {
+    Write-Host "=== Dich Clipboard (EN) + Tu Vung ===" -ForegroundColor Cyan
+    Write-Host "Boi den van ban tieng Anh -> Ctrl+C" -ForegroundColor DarkGray
+    Write-Host "--------------------------------" -ForegroundColor DarkGray
+}
+
+Clear-Host
+Show-Header
+
+$lastText = ""
+
+while ($true) {
+    Start-Sleep -Milliseconds 700
+    $text = Get-Clipboard -Raw
+
+    if ([string]::IsNullOrWhiteSpace($text)) { continue }
+    if ($text -eq $lastText) { continue }
+    if ($text.Length -gt 5000) { continue }
+    if (Is-CodeText $text) { continue }
+
+    $lastText = $text
+
+    try {
+        $translated = Translate-Text $text
+
+        $word = Get-RandomWord $text
+        if ($word) {
+            $UsedWords.Add($word) | Out-Null
+            $WordList += [PSCustomObject]@{
+                word    = $word
+                meaning = (Translate-Text $word)
+            }
+        }
+
+        Clear-Host
+        Show-Header
+
+        Write-Host "EN:" -ForegroundColor Cyan
+        Write-WrappedText $text Gray
+
+        Write-Host ""
+        Write-Host "VI:" -ForegroundColor Green
+        Write-WrappedText $translated DarkGreen
+
+        Write-Host ""
+        Write-Host "=== TU VUNG NGAU NHIEN ===" -ForegroundColor Yellow
+        foreach ($item in $WordList | Select-Object -Last 8) {
+            Write-Host ("• " + $item.word) -ForegroundColor Cyan -NoNewline
+            Write-Host ("  →  " + $item.meaning) -ForegroundColor DarkGreen
+        }
+    }
+    catch {
+        Clear-Host
+        Show-Header
+        Write-Host "Loi khi dich!" -ForegroundColor Red
+    }
+}
