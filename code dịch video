@@ -1,0 +1,103 @@
+import time
+import pyperclip
+import re
+
+# ===== CẤU HÌNH =====
+VTT_FILE = "Why don't jet engines melt？ [QtxVdC7pBQM].en.vtt"
+
+MIN_DELAY = 4.0          # delay tối thiểu (giây)
+CHAR_PER_SEC = 12.0      # tốc độ đọc ước lượng
+
+
+# ===== HÀM CHUYỂN THỜI GIAN =====
+def to_seconds(t):
+    t = t.replace(",", ".").strip()
+    parts = t.split(":")
+
+    if len(parts) == 2:          # MM:SS.mmm
+        m, s = parts
+        return int(m) * 60 + float(s)
+    elif len(parts) == 3:        # HH:MM:SS.mmm
+        h, m, s = parts
+        return int(h) * 3600 + int(m) * 60 + float(s)
+    else:
+        raise ValueError("Timestamp khong hop le: " + t)
+
+
+# ===== LÀM SẠCH TEXT PHỤ ĐỀ =====
+def clean_text(text):
+    text = re.sub(r"<\d\d:\d\d:\d\d\.\d\d\d>", "", text)
+    text = re.sub(r"</?c>", "", text)
+    text = re.sub(r"\[.*?\]", "", text)
+    text = re.sub(r"\s+", " ", text)
+    return text.strip()
+
+
+# ===== PARSE FILE VTT =====
+def parse_vtt(path):
+    subs = []
+    with open(path, "r", encoding="utf-8") as f:
+        lines = f.readlines()
+
+    i = 0
+    while i < len(lines):
+        line = lines[i].strip()
+
+        if "-->" in line:
+            left, right = line.split(" --> ")
+            start = left.strip()
+            end = right.split()[0].strip()
+
+            text_lines = []
+            j = i + 1
+            while j < len(lines) and lines[j].strip() != "":
+                text_lines.append(lines[j].strip())
+                j += 1
+
+            text = clean_text(" ".join(text_lines))
+            if text:
+                subs.append((
+                    to_seconds(start),
+                    to_seconds(end),
+                    text
+                ))
+
+            i = j
+        else:
+            i += 1
+
+    return subs
+
+
+# ===== LOAD PHỤ ĐỀ =====
+subs = parse_vtt(VTT_FILE)
+
+print("App dang chay.")
+print("So cau phu de:", len(subs))
+print("Nhan Ctrl+C de dung app.")
+
+
+# ===== CHẠY =====
+start_time = time.time()
+last_index = -1
+block_until = 0
+
+while True:
+    now = time.time()
+    elapsed = now - start_time
+
+    if now < block_until:
+        time.sleep(0.1)
+        continue
+
+    for i, (s, e, text) in enumerate(subs):
+        if s <= elapsed <= e and i != last_index:
+            pyperclip.copy(text)
+            print("COPY:", text)
+
+            delay = max(MIN_DELAY, len(text) / CHAR_PER_SEC)
+            block_until = now + delay
+            last_index = i
+            break
+
+    time.sleep(0.1)
