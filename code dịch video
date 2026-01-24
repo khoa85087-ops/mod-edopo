@@ -1,6 +1,7 @@
 import time
 import pyperclip
 import re
+import html
 
 # ===== CẤU HÌNH =====
 VTT_FILE = "Why don't jet engines melt？ [QtxVdC7pBQM].en.vtt"
@@ -26,6 +27,7 @@ def to_seconds(t):
 
 # ===== LÀM SẠCH TEXT PHỤ ĐỀ =====
 def clean_text(text):
+    text = html.unescape(text)                     # &gt; &amp; &quot; ...
     text = re.sub(r"<\d\d:\d\d:\d\d\.\d\d\d>", "", text)
     text = re.sub(r"</?c>", "", text)
     text = re.sub(r"\[.*?\]", "", text)
