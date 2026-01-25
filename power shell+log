@@ -24,16 +24,26 @@ $ExcludeWords = @(
     "the","and","but","for","with","just","very","really"
 )
 
-# ===== PHÁT HIỆN CODE / SCRIPT =====
+# ===== PHÁT HIỆN CODE / SCRIPT (ĐÃ FIX) =====
 function Is-CodeText {
     param ([string]$Text)
 
-    return (
-        $Text -match '\b(Add-Type|Write-Host|function|param|foreach|while|try|catch|\$[a-zA-Z_])\b' -or
-        $Text -match '^\s*#' -or
-        $Text -match '\{\s*$' -or
-        $Text -match '[-]{2,}'
-    )
+    # Chuẩn hoá dash Unicode (– —) về -
+    $t = $Text -replace '[–—]', '-'
+
+    $score = 0
+
+    # Dấu hiệu code MẠNH
+    if ($t -match '\$[a-zA-Z_][a-zA-Z0-9_]*') { $score += 2 }
+    if ($t -match '\b(Add-Type|Write-Host|Invoke-|Get-|Set-|function|param|foreach|while|try|catch)\b') { $score += 2 }
+
+    # Dấu hiệu code TRUNG BÌNH
+    if ($t -match '^\s*#') { $score += 1 }
+    if ($t -match '\{\s*$') { $score += 1 }
+    if ($t -match ';\s*$') { $score += 1 }
+
+    # Chỉ coi là code khi ĐỦ mạnh
+    return ($score -ge 3)
 }
 
 # ===== WRAP TEXT =====
@@ -74,6 +84,11 @@ function Translate-Text {
     $encoded = [uri]::EscapeDataString($Text)
     $url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=vi&dt=t&dj=1&q=$encoded"
     $result = Invoke-RestMethod -Uri $url -TimeoutSec 10
+
+    if (-not $result.sentences) {
+        throw "Google Translate khong tra ve ket qua hop le"
+    }
+
     return ($result.sentences | ForEach-Object { $_.trans }) -join ""
 }
 
@@ -165,7 +180,6 @@ while ($true) {
     try {
         $translated = Translate-Text $text
 
-        # GHI LOG (KHÔNG ẢNH HƯỞNG HIỂN THỊ)
         Write-TranslateLog -EN $text -VI $translated
 
         $phrase = Get-RandomPhrase2 $text
@@ -198,5 +212,6 @@ while ($true) {
         Clear-Host
         Show-Header
         Write-Host "Loi khi dich!" -ForegroundColor Red
+        Write-Host $_ -ForegroundColor DarkRed
     }
 }
