@@ -1,0 +1,246 @@
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Controls.Primitives;
+using Microsoft.Win32;
+using System.IO;
+using System.Text;
+
+namespace LogicNote
+{
+    public partial class MainWindow : Window
+    {
+        private TextBox _activeTextBox;
+        private string _currentFilePath = null;
+
+        public MainWindow()
+        {
+            InitializeComponent();
+
+            TitleBox.GotFocus += (_, __) => _activeTextBox = TitleBox;
+            InputBox.GotFocus += (_, __) => _activeTextBox = InputBox;
+            ReasoningBox.GotFocus += (_, __) => _activeTextBox = ReasoningBox;
+            OutputBox.GotFocus += (_, __) => _activeTextBox = OutputBox;
+        }
+
+        /* ================= FILE ================= */
+
+        private void NewNote(object sender, RoutedEventArgs e)
+        {
+            TitleBox.Clear();
+            InputBox.Clear();
+            ReasoningBox.Clear();
+            OutputBox.Clear();
+            _currentFilePath = null;
+        }
+
+        private void OpenNote(object sender, RoutedEventArgs e)
+        {
+            OpenFileDialog dlg = new OpenFileDialog
+            {
+                Filter = "LogicNote (*.logicnote)|*.logicnote|Text (*.txt)|*.txt|All files (*.*)|*.*"
+            };
+
+            if (dlg.ShowDialog() == true)
+            {
+                _currentFilePath = dlg.FileName;
+                LoadFromFile(_currentFilePath);
+            }
+        }
+
+        private void SaveNote(object sender, RoutedEventArgs e)
+        {
+            // Nếu chưa từng lưu → Save As (với tên = tiêu đề)
+            if (_currentFilePath == null)
+            {
+                SaveNoteAs(sender, e);
+                return;
+            }
+
+            SaveToFile(_currentFilePath);
+        }
+
+        private void SaveNoteAs(object sender, RoutedEventArgs e)
+        {
+            // Lấy tiêu đề làm tên file mặc định
+            string title = TitleBox.Text?.Trim();
+
+            if (string.IsNullOrWhiteSpace(title))
+                title = "LogicNote";
+
+            SaveFileDialog dlg = new SaveFileDialog
+            {
+                FileName = title, // ⭐ tên file = tiêu đề (có dấu, có cách)
+                Filter = "LogicNote (*.logicnote)|*.logicnote|Text (*.txt)|*.txt"
+            };
+
+            if (dlg.ShowDialog() == true)
+            {
+                _currentFilePath = dlg.FileName;
+                SaveToFile(_currentFilePath);
+            }
+        }
+
+        /* ================= SAVE / LOAD CORE ================= */
+
+        private void SaveToFile(string path)
+        {
+            StringBuilder sb = new StringBuilder();
+
+            sb.AppendLine("#TITLE");
+            sb.AppendLine(TitleBox.Text);
+
+            sb.AppendLine("#INPUT");
+            sb.AppendLine(InputBox.Text);
+
+            sb.AppendLine("#REASONING");
+            sb.AppendLine(ReasoningBox.Text);
+
+            sb.AppendLine("#OUTPUT");
+            sb.AppendLine(OutputBox.Text);
+
+            File.WriteAllText(path, sb.ToString(), Encoding.UTF8);
+        }
+
+        private void LoadFromFile(string path)
+        {
+            string[] lines = File.ReadAllLines(path, Encoding.UTF8);
+
+            TextBox current = null;
+            StringBuilder buffer = new StringBuilder();
+
+            void Flush()
+            {
+                if (current != null)
+                    current.Text = buffer.ToString().TrimEnd();
+                buffer.Clear();
+            }
+
+            foreach (string line in lines)
+            {
+                switch (line)
+                {
+                    case "#TITLE":
+                        Flush();
+                        current = TitleBox;
+                        break;
+
+                    case "#INPUT":
+                        Flush();
+                        current = InputBox;
+                        break;
+
+                    case "#REASONING":
+                        Flush();
+                        current = ReasoningBox;
+                        break;
+
+                    case "#OUTPUT":
+                        Flush();
+                        current = OutputBox;
+                        break;
+
+                    default:
+                        buffer.AppendLine(line);
+                        break;
+                }
+            }
+
+            Flush();
+        }
+
+        /* ================= INSERT MATH ================= */
+
+        private void InsertMath(object sender, RoutedEventArgs e)
+        {
+            if (_activeTextBox == null) return;
+
+            switch (sender)
+            {
+                case MenuItem menuItem:
+                    InsertText(menuItem.Header.ToString());
+                    break;
+
+                case Button button:
+                    InsertText(button.Content.ToString());
+                    break;
+            }
+        }
+
+        private void InsertText(string text)
+        {
+            int caret = _activeTextBox.CaretIndex;
+            _activeTextBox.Text =
+                _activeTextBox.Text.Insert(caret, text);
+            _activeTextBox.CaretIndex = caret + text.Length;
+            _activeTextBox.Focus();
+        }
+
+        /* ================= TYPING FORMAT (STATE) ================= */
+
+        private void ToggleBold(object sender, RoutedEventArgs e)
+        {
+            if (_activeTextBox == null) return;
+
+            if (sender is ToggleButton btn)
+            {
+                _activeTextBox.FontWeight =
+                    btn.IsChecked == true
+                    ? FontWeights.Bold
+                    : FontWeights.Normal;
+            }
+        }
+
+        private void IncreaseFont(object sender, RoutedEventArgs e)
+        {
+            if (_activeTextBox == null) return;
+            _activeTextBox.FontSize += 1;
+        }
+
+        private void DecreaseFont(object sender, RoutedEventArgs e)
+        {
+            if (_activeTextBox == null) return;
+            if (_activeTextBox.FontSize > 8)
+                _activeTextBox.FontSize -= 1;
+        }
+
+        private void ColorRed(object sender, RoutedEventArgs e)
+        {
+            SetTypingColor(Brushes.Red);
+        }
+
+        private void ColorBlue(object sender, RoutedEventArgs e)
+        {
+            SetTypingColor(Brushes.Blue);
+        }
+
+        private void ColorBlack(object sender, RoutedEventArgs e)
+        {
+            SetTypingColor(Brushes.Black);
+        }
+
+        private void SetTypingColor(Brush color)
+        {
+            if (_activeTextBox == null) return;
+            _activeTextBox.Foreground = color;
+        }
+
+        /* ================= QUICK INSERT ================= */
+
+        private void InsertDivider(object sender, RoutedEventArgs e)
+        {
+            InsertText("\n──────────────\n");
+        }
+
+        private void InsertArrow(object sender, RoutedEventArgs e)
+        {
+            InsertText(" ⇒ ");
+        }
+
+        private void InsertMark(object sender, RoutedEventArgs e)
+        {
+            InsertText(" ★ ");
+        }
+    }
+}
+
