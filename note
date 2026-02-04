@@ -187,7 +187,9 @@
                 <Button Content="⚫" Width="35" ToolTip="Màu đen" Click="ColorBlack"/>
 
                 <Separator/>
-
+                <Button Content="•" Width="40" ToolTip="Gạch đầu dòng" Click="InsertMath"/>
+                <Button Content="–" Width="40" ToolTip="Ý phụ" Click="InsertMath"/>
+                <Button Content="→" Width="40" ToolTip="Dẫn tới" Click="InsertMath"/>
                 <Button Content="───" Width="60" ToolTip="Phân tách ý" Click="InsertDivider"/>
                 <Button Content="⇒" Width="40" ToolTip="Suy ra" Click="InsertArrow"/>
                 <Button Content="★" Width="40" ToolTip="Đánh dấu quan trọng" Click="InsertMark"/>
@@ -227,3 +229,4 @@
 
     </DockPanel>
 </Window>
+
