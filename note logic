@@ -50,7 +50,6 @@ namespace LogicNote
 
         private void SaveNote(object sender, RoutedEventArgs e)
         {
-            // Nếu chưa từng lưu → Save As (với tên = tiêu đề)
             if (_currentFilePath == null)
             {
                 SaveNoteAs(sender, e);
@@ -62,15 +61,13 @@ namespace LogicNote
 
         private void SaveNoteAs(object sender, RoutedEventArgs e)
         {
-            // Lấy tiêu đề làm tên file mặc định
             string title = TitleBox.Text?.Trim();
-
             if (string.IsNullOrWhiteSpace(title))
                 title = "LogicNote";
 
             SaveFileDialog dlg = new SaveFileDialog
             {
-                FileName = title, // ⭐ tên file = tiêu đề (có dấu, có cách)
+                FileName = title,
                 Filter = "LogicNote (*.logicnote)|*.logicnote|Text (*.txt)|*.txt"
             };
 
@@ -81,22 +78,63 @@ namespace LogicNote
             }
         }
 
-        /* ================= SAVE / LOAD CORE ================= */
+        /* ================= SAVE / LOAD WITH METADATA ================= */
+
+        private string GetMeta(TextBox box)
+        {
+            string color = (box.Foreground as SolidColorBrush)?.Color.ToString() ?? "#FF000000";
+            return $"FONT={box.FontSize};BOLD={(box.FontWeight == FontWeights.Bold)};COLOR={color}";
+        }
+
+        private void ApplyMeta(TextBox box, string meta)
+        {
+            var parts = meta.Split(';');
+
+            foreach (var part in parts)
+            {
+                var kv = part.Split('=');
+                if (kv.Length != 2) continue;
+
+                switch (kv[0])
+                {
+                    case "FONT":
+                        if (double.TryParse(kv[1], out double size))
+                            box.FontSize = size;
+                        break;
+
+                    case "BOLD":
+                        box.FontWeight = kv[1] == "true"
+                            ? FontWeights.Bold
+                            : FontWeights.Normal;
+                        break;
+
+                    case "COLOR":
+                        box.Foreground = new SolidColorBrush(
+                            (Color)ColorConverter.ConvertFromString(kv[1])
+                        );
+                        break;
+                }
+            }
+        }
 
         private void SaveToFile(string path)
         {
             StringBuilder sb = new StringBuilder();
 
             sb.AppendLine("#TITLE");
+            sb.AppendLine(GetMeta(TitleBox));
             sb.AppendLine(TitleBox.Text);
 
             sb.AppendLine("#INPUT");
+            sb.AppendLine(GetMeta(InputBox));
             sb.AppendLine(InputBox.Text);
 
             sb.AppendLine("#REASONING");
+            sb.AppendLine(GetMeta(ReasoningBox));
             sb.AppendLine(ReasoningBox.Text);
 
             sb.AppendLine("#OUTPUT");
+            sb.AppendLine(GetMeta(OutputBox));
             sb.AppendLine(OutputBox.Text);
 
             File.WriteAllText(path, sb.ToString(), Encoding.UTF8);
@@ -107,43 +145,53 @@ namespace LogicNote
             string[] lines = File.ReadAllLines(path, Encoding.UTF8);
 
             TextBox current = null;
+            bool waitingMeta = false;
+            string pendingMeta = null;
             StringBuilder buffer = new StringBuilder();
 
             void Flush()
             {
                 if (current != null)
+                {
+                    // 1️⃣ set TEXT trước
                     current.Text = buffer.ToString().TrimEnd();
+
+                    // 2️⃣ rồi mới set STYLE (để không bị reset)
+                    if (!string.IsNullOrEmpty(pendingMeta))
+                    {
+                        ApplyMeta(current, pendingMeta);
+                        pendingMeta = null;
+                    }
+                }
                 buffer.Clear();
             }
 
             foreach (string line in lines)
             {
-                switch (line)
+                if (line.StartsWith("#"))
                 {
-                    case "#TITLE":
-                        Flush();
-                        current = TitleBox;
-                        break;
+                    Flush();
+                    waitingMeta = true;
 
-                    case "#INPUT":
-                        Flush();
-                        current = InputBox;
-                        break;
-
-                    case "#REASONING":
-                        Flush();
-                        current = ReasoningBox;
-                        break;
-
-                    case "#OUTPUT":
-                        Flush();
-                        current = OutputBox;
-                        break;
-
-                    default:
-                        buffer.AppendLine(line);
-                        break;
+                    current = line switch
+                    {
+                        "#TITLE" => TitleBox,
+                        "#INPUT" => InputBox,
+                        "#REASONING" => ReasoningBox,
+                        "#OUTPUT" => OutputBox,
+                        _ => null
+                    };
+                    continue;
                 }
+
+                if (waitingMeta && current != null)
+                {
+                    pendingMeta = line; // giữ meta lại
+                    waitingMeta = false;
+                    continue;
+                }
+
+                buffer.AppendLine(line);
             }
 
             Flush();
@@ -176,7 +224,7 @@ namespace LogicNote
             _activeTextBox.Focus();
         }
 
-        /* ================= TYPING FORMAT (STATE) ================= */
+        /* ================= TYPING FORMAT ================= */
 
         private void ToggleBold(object sender, RoutedEventArgs e)
         {
@@ -208,6 +256,31 @@ namespace LogicNote
         {
             SetTypingColor(Brushes.Red);
         }
+        private void ColorGreen(object sender, RoutedEventArgs e)
+        {
+            SetTypingColor(Brushes.Green);
+        }
+
+        private void ColorPurple(object sender, RoutedEventArgs e)
+        {
+            SetTypingColor(Brushes.Purple);
+        }
+
+        private void ColorOrange(object sender, RoutedEventArgs e)
+        {
+            SetTypingColor(Brushes.Orange);
+        }
+
+        private void ColorBrown(object sender, RoutedEventArgs e)
+        {
+            SetTypingColor(Brushes.SaddleBrown);
+        }
+
+        private void ColorGray(object sender, RoutedEventArgs e)
+        {
+            SetTypingColor(Brushes.Gray);
+        }
+
 
         private void ColorBlue(object sender, RoutedEventArgs e)
         {
@@ -243,4 +316,3 @@ namespace LogicNote
         }
     }
 }
-
