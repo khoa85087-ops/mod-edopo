@@ -163,30 +163,37 @@
             <ToolBar>
 
                 <ToggleButton Content="B"
-                              FontWeight="Bold"
-                              Width="30"
-                              ToolTip="Bôi đen"
-                              Click="ToggleBold"/>
+                      FontWeight="Bold"
+                      Width="30"
+                      ToolTip="Bôi đen"
+                      Click="ToggleBold"/>
 
                 <Separator/>
 
                 <Button Content="A+"
-                        Width="40"
-                        ToolTip="Phóng to chữ"
-                        Click="IncreaseFont"/>
+                Width="40"
+                ToolTip="Phóng to chữ"
+                Click="IncreaseFont"/>
 
                 <Button Content="A-"
-                        Width="40"
-                        ToolTip="Thu nhỏ chữ"
-                        Click="DecreaseFont"/>
+                Width="40"
+                ToolTip="Thu nhỏ chữ"
+                Click="DecreaseFont"/>
 
                 <Separator/>
 
-                <Button Content="🔴" Width="35" ToolTip="Tô màu đỏ" Click="ColorRed"/>
-                <Button Content="🔵" Width="35" ToolTip="Tô màu xanh" Click="ColorBlue"/>
-                <Button Content="⚫" Width="35" ToolTip="Màu đen" Click="ColorBlack"/>
+                <!-- ===== COLORS ===== -->
+                <Button Content="🔴" Width="35" ToolTip="Đỏ" Click="ColorRed"/>
+                <Button Content="🔵" Width="35" ToolTip="Xanh dương" Click="ColorBlue"/>
+                <Button Content="🟢" Width="35" ToolTip="Xanh lá" Click="ColorGreen"/>
+                <Button Content="🟣" Width="35" ToolTip="Tím" Click="ColorPurple"/>
+                <Button Content="🟠" Width="35" ToolTip="Cam" Click="ColorOrange"/>
+                <Button Content="🟤" Width="35" ToolTip="Nâu" Click="ColorBrown"/>
+                <Button Content="⚫" Width="35" ToolTip="Đen" Click="ColorBlack"/>
+                <Button Content="⚪" Width="35" ToolTip="Xám" Click="ColorGray"/>
 
                 <Separator/>
+
                 <Button Content="•" Width="40" ToolTip="Gạch đầu dòng" Click="InsertMath"/>
                 <Button Content="–" Width="40" ToolTip="Ý phụ" Click="InsertMath"/>
                 <Button Content="→" Width="40" ToolTip="Dẫn tới" Click="InsertMath"/>
@@ -197,36 +204,45 @@
             </ToolBar>
         </ToolBarTray>
 
+
         <!-- ================= CONTENT ================= -->
         <ScrollViewer VerticalScrollBarVisibility="Auto">
             <StackPanel Margin="12">
 
                 <TextBlock Text="Tiêu đề" FontWeight="Bold" FontSize="14"/>
-                <TextBox x:Name="TitleBox" FontSize="16" Margin="0,4,0,12"/>
+                <TextBox x:Name="TitleBox"
+         FontSize="18"
+         Margin="0,4,0,12"/>
+
 
                 <TextBlock Text="Input"/>
                 <TextBox x:Name="InputBox"
-                         AcceptsReturn="True"
-                         TextWrapping="Wrap"
-                         Height="120"
-                         Margin="0,4,0,12"/>
+         FontSize="18"
+         AcceptsReturn="True"
+         TextWrapping="Wrap"
+         Height="120"
+         Margin="0,4,0,12"/>
+
 
                 <TextBlock Text="Lập luận"/>
                 <TextBox x:Name="ReasoningBox"
-                         AcceptsReturn="True"
-                         TextWrapping="Wrap"
-                         Height="260"
-                         Margin="0,4,0,12"/>
+         FontSize="18"
+         AcceptsReturn="True"
+         TextWrapping="Wrap"
+         Height="260"
+         Margin="0,4,0,12"/>
+
 
                 <TextBlock Text="Output"/>
                 <TextBox x:Name="OutputBox"
-                         AcceptsReturn="True"
-                         TextWrapping="Wrap"
-                         Height="120"/>
+         FontSize="18"
+         AcceptsReturn="True"
+         TextWrapping="Wrap"
+         Height="120"/>
+
 
             </StackPanel>
         </ScrollViewer>
 
     </DockPanel>
 </Window>
-
