@@ -1,0 +1,183 @@
+<Window x:Class="LogicNote.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="LogicNote"
+        Height="750" Width="950">
+
+    <DockPanel>
+
+        <!-- MENU BAR -->
+        <Menu DockPanel.Dock="Top">
+            <MenuItem Header="File">
+                <MenuItem Header="New" Click="NewNote"/>
+                <MenuItem Header="Open" Click="OpenNote"/>
+                <MenuItem Header="Save" Click="SaveNote"/>
+                <MenuItem Header="Save As" Click="SaveNoteAs"/>
+            </MenuItem>
+
+            <!-- ================= MATH ================= -->
+            <MenuItem Header="Math">
+
+                <MenuItem Header="Giải tích">
+                    <MenuItem Header="∂" Click="InsertMath"/>
+                    <MenuItem Header="d/dt" Click="InsertMath"/>
+                    <MenuItem Header="∇" Click="InsertMath"/>
+                    <MenuItem Header="Δ" Click="InsertMath"/>
+                    <MenuItem Header="lim" Click="InsertMath"/>
+                </MenuItem>
+
+                <MenuItem Header="Tích phân">
+                    <MenuItem Header="∫" Click="InsertMath"/>
+                    <MenuItem Header="∬" Click="InsertMath"/>
+                    <MenuItem Header="∭" Click="InsertMath"/>
+                    <MenuItem Header="∮" Click="InsertMath"/>
+                </MenuItem>
+
+                <MenuItem Header="Tổng – Tích">
+                    <MenuItem Header="Σ" Click="InsertMath"/>
+                    <MenuItem Header="Π" Click="InsertMath"/>
+                </MenuItem>
+
+                <MenuItem Header="Số mũ">
+                    <MenuItem Header="¹" Click="InsertMath"/>
+                    <MenuItem Header="²" Click="InsertMath"/>
+                    <MenuItem Header="³" Click="InsertMath"/>
+                    <MenuItem Header="⁴" Click="InsertMath"/>
+                    <MenuItem Header="⁵" Click="InsertMath"/>
+                    <MenuItem Header="⁶" Click="InsertMath"/>
+                    <MenuItem Header="⁷" Click="InsertMath"/>
+                    <MenuItem Header="⁸" Click="InsertMath"/>
+                    <MenuItem Header="⁹" Click="InsertMath"/>
+                    <Separator/>
+                    <MenuItem Header="⁻¹" Click="InsertMath"/>
+                    <MenuItem Header="⁻²" Click="InsertMath"/>
+                    <MenuItem Header="⁻³" Click="InsertMath"/>
+                    <MenuItem Header="⁻⁴" Click="InsertMath"/>
+                    <MenuItem Header="⁻⁵" Click="InsertMath"/>
+                    <MenuItem Header="⁻⁶" Click="InsertMath"/>
+                    <MenuItem Header="⁻⁷" Click="InsertMath"/>
+                    <MenuItem Header="⁻⁸" Click="InsertMath"/>
+                    <MenuItem Header="⁻⁹" Click="InsertMath"/>
+                </MenuItem>
+
+                <MenuItem Header="Căn">
+                    <MenuItem Header="√" Click="InsertMath"/>
+                    <MenuItem Header="∛" Click="InsertMath"/>
+                    <MenuItem Header="∜" Click="InsertMath"/>
+                </MenuItem>
+
+                <MenuItem Header="Ngoặc">
+                    <MenuItem Header="( )" Click="InsertMath"/>
+                    <MenuItem Header="[ ]" Click="InsertMath"/>
+                    <MenuItem Header="{}{ }" Click="InsertMath"/>
+                    <MenuItem Header="⟨ ⟩" Click="InsertMath"/>
+                    <MenuItem Header="| |" Click="InsertMath"/>
+                    <MenuItem Header="‖ ‖" Click="InsertMath"/>
+                </MenuItem>
+
+                <MenuItem Header="Toán tử">
+                    <MenuItem Header="+" Click="InsertMath"/>
+                    <MenuItem Header="−" Click="InsertMath"/>
+                    <MenuItem Header="×" Click="InsertMath"/>
+                    <MenuItem Header="·" Click="InsertMath"/>
+                    <MenuItem Header="÷" Click="InsertMath"/>
+                </MenuItem>
+
+                <MenuItem Header="Phân số">
+                    <MenuItem Header="□/□" Click="InsertMath"/>
+                </MenuItem>
+
+                <MenuItem Header="Logic – Tập hợp">
+                    <MenuItem Header="∀" Click="InsertMath"/>
+                    <MenuItem Header="∃" Click="InsertMath"/>
+                    <MenuItem Header="∈" Click="InsertMath"/>
+                    <MenuItem Header="∉" Click="InsertMath"/>
+                    <MenuItem Header="⊂" Click="InsertMath"/>
+                    <MenuItem Header="⊆" Click="InsertMath"/>
+                    <MenuItem Header="∪" Click="InsertMath"/>
+                    <MenuItem Header="∩" Click="InsertMath"/>
+                    <MenuItem Header="∅" Click="InsertMath"/>
+                </MenuItem>
+
+                <MenuItem Header="So sánh">
+                    <MenuItem Header="=" Click="InsertMath"/>
+                    <MenuItem Header="≠" Click="InsertMath"/>
+                    <MenuItem Header="≈" Click="InsertMath"/>
+                    <MenuItem Header="≡" Click="InsertMath"/>
+                    <MenuItem Header="≤" Click="InsertMath"/>
+                    <MenuItem Header="≥" Click="InsertMath"/>
+                </MenuItem>
+
+                <MenuItem Header="Ánh xạ">
+                    <MenuItem Header="→" Click="InsertMath"/>
+                    <MenuItem Header="↦" Click="InsertMath"/>
+                    <MenuItem Header="⇒" Click="InsertMath"/>
+                    <MenuItem Header="⇔" Click="InsertMath"/>
+                </MenuItem>
+
+                <MenuItem Header="Hy Lạp thường">
+                    <MenuItem Header="α" Click="InsertMath"/>
+                    <MenuItem Header="β" Click="InsertMath"/>
+                    <MenuItem Header="γ" Click="InsertMath"/>
+                    <MenuItem Header="δ" Click="InsertMath"/>
+                    <MenuItem Header="ε" Click="InsertMath"/>
+                    <MenuItem Header="ζ" Click="InsertMath"/>
+                    <MenuItem Header="η" Click="InsertMath"/>
+                    <MenuItem Header="θ" Click="InsertMath"/>
+                    <MenuItem Header="ι" Click="InsertMath"/>
+                    <MenuItem Header="κ" Click="InsertMath"/>
+                    <MenuItem Header="λ" Click="InsertMath"/>
+                    <MenuItem Header="μ" Click="InsertMath"/>
+                    <MenuItem Header="ν" Click="InsertMath"/>
+                    <MenuItem Header="ξ" Click="InsertMath"/>
+                    <MenuItem Header="ο" Click="InsertMath"/>
+                    <MenuItem Header="π" Click="InsertMath"/>
+                    <MenuItem Header="ρ" Click="InsertMath"/>
+                    <MenuItem Header="σ" Click="InsertMath"/>
+                    <MenuItem Header="τ" Click="InsertMath"/>
+                    <MenuItem Header="υ" Click="InsertMath"/>
+                    <MenuItem Header="φ" Click="InsertMath"/>
+                    <MenuItem Header="χ" Click="InsertMath"/>
+                    <MenuItem Header="ψ" Click="InsertMath"/>
+                    <MenuItem Header="ω" Click="InsertMath"/>
+                </MenuItem>
+                <MenuItem Header="Hy Lạp hoa">
+                    <MenuItem Header="Γ" Click="InsertMath"/>
+                    <MenuItem Header="Δ" Click="InsertMath"/>
+                    <MenuItem Header="Θ" Click="InsertMath"/>
+                    <MenuItem Header="Λ" Click="InsertMath"/>
+                    <MenuItem Header="Ξ" Click="InsertMath"/>
+                    <MenuItem Header="Π" Click="InsertMath"/>
+                    <MenuItem Header="Σ" Click="InsertMath"/>
+                    <MenuItem Header="Φ" Click="InsertMath"/>
+                    <MenuItem Header="Ψ" Click="InsertMath"/>
+                    <MenuItem Header="Ω" Click="InsertMath"/>
+                </MenuItem>
+
+
+            </MenuItem>
+        </Menu>
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="12">
+
+                <TextBlock Text="Tiêu đề" FontWeight="Bold" FontSize="14"/>
+                <TextBox x:Name="TitleBox" FontSize="16" Margin="0,4,0,12"/>
+
+                <TextBlock Text="Input"/>
+                <TextBox x:Name="InputBox" AcceptsReturn="True" TextWrapping="Wrap"
+                         Height="120" Margin="0,4,0,12"/>
+
+                <TextBlock Text="Lập luận"/>
+                <TextBox x:Name="ReasoningBox" AcceptsReturn="True" TextWrapping="Wrap"
+                         Height="260" Margin="0,4,0,12"/>
+
+                <TextBlock Text="Output"/>
+                <TextBox x:Name="OutputBox" AcceptsReturn="True" TextWrapping="Wrap"
+                         Height="120"/>
+
+            </StackPanel>
+        </ScrollViewer>
+
+    </DockPanel>
+</Window>
