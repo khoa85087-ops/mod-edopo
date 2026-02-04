@@ -6,7 +6,7 @@
 
     <DockPanel>
 
-        <!-- MENU BAR -->
+        <!-- ================= MENU BAR (GIỮ NGUYÊN) ================= -->
         <Menu DockPanel.Dock="Top">
             <MenuItem Header="File">
                 <MenuItem Header="New" Click="NewNote"/>
@@ -15,7 +15,7 @@
                 <MenuItem Header="Save As" Click="SaveNoteAs"/>
             </MenuItem>
 
-            <!-- ================= MATH ================= -->
+            <!-- ================= MATH (GIỮ NGUYÊN TOÀN BỘ) ================= -->
             <MenuItem Header="Math">
 
                 <MenuItem Header="Giải tích">
@@ -141,6 +141,7 @@
                     <MenuItem Header="ψ" Click="InsertMath"/>
                     <MenuItem Header="ω" Click="InsertMath"/>
                 </MenuItem>
+
                 <MenuItem Header="Hy Lạp hoa">
                     <MenuItem Header="Γ" Click="InsertMath"/>
                     <MenuItem Header="Δ" Click="InsertMath"/>
@@ -154,10 +155,47 @@
                     <MenuItem Header="Ω" Click="InsertMath"/>
                 </MenuItem>
 
-
             </MenuItem>
         </Menu>
 
+        <!-- ================= TOOLBAR ĐỊNH DẠNG (CHỈ UI) ================= -->
+        <ToolBarTray DockPanel.Dock="Top">
+            <ToolBar>
+
+                <ToggleButton Content="B"
+                              FontWeight="Bold"
+                              Width="30"
+                              ToolTip="Bôi đen"
+                              Click="ToggleBold"/>
+
+                <Separator/>
+
+                <Button Content="A+"
+                        Width="40"
+                        ToolTip="Phóng to chữ"
+                        Click="IncreaseFont"/>
+
+                <Button Content="A-"
+                        Width="40"
+                        ToolTip="Thu nhỏ chữ"
+                        Click="DecreaseFont"/>
+
+                <Separator/>
+
+                <Button Content="🔴" Width="35" ToolTip="Tô màu đỏ" Click="ColorRed"/>
+                <Button Content="🔵" Width="35" ToolTip="Tô màu xanh" Click="ColorBlue"/>
+                <Button Content="⚫" Width="35" ToolTip="Màu đen" Click="ColorBlack"/>
+
+                <Separator/>
+
+                <Button Content="───" Width="60" ToolTip="Phân tách ý" Click="InsertDivider"/>
+                <Button Content="⇒" Width="40" ToolTip="Suy ra" Click="InsertArrow"/>
+                <Button Content="★" Width="40" ToolTip="Đánh dấu quan trọng" Click="InsertMark"/>
+
+            </ToolBar>
+        </ToolBarTray>
+
+        <!-- ================= CONTENT ================= -->
         <ScrollViewer VerticalScrollBarVisibility="Auto">
             <StackPanel Margin="12">
 
@@ -165,15 +203,23 @@
                 <TextBox x:Name="TitleBox" FontSize="16" Margin="0,4,0,12"/>
 
                 <TextBlock Text="Input"/>
-                <TextBox x:Name="InputBox" AcceptsReturn="True" TextWrapping="Wrap"
-                         Height="120" Margin="0,4,0,12"/>
+                <TextBox x:Name="InputBox"
+                         AcceptsReturn="True"
+                         TextWrapping="Wrap"
+                         Height="120"
+                         Margin="0,4,0,12"/>
 
                 <TextBlock Text="Lập luận"/>
-                <TextBox x:Name="ReasoningBox" AcceptsReturn="True" TextWrapping="Wrap"
-                         Height="260" Margin="0,4,0,12"/>
+                <TextBox x:Name="ReasoningBox"
+                         AcceptsReturn="True"
+                         TextWrapping="Wrap"
+                         Height="260"
+                         Margin="0,4,0,12"/>
 
                 <TextBlock Text="Output"/>
-                <TextBox x:Name="OutputBox" AcceptsReturn="True" TextWrapping="Wrap"
+                <TextBox x:Name="OutputBox"
+                         AcceptsReturn="True"
+                         TextWrapping="Wrap"
                          Height="120"/>
 
             </StackPanel>
