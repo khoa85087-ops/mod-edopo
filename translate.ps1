@@ -1,17 +1,52 @@
-
 Add-Type -AssemblyName PresentationCore
 
-# ===== DANH SÁCH TỪ ĐÃ LƯU =====
+# ===== FILE LƯU LỊCH SỬ (1 FILE DUY NHẤT) =====
+$LogFile = "$PSScriptRoot\translate_log.txt"
+
+# ===== DANH SÁCH TỪ / CỤM ĐÃ LƯU =====
 $WordList = @()
+
+# ===== BỘ NHỚ CHỐNG LẶP (CỤM 2 TỪ) =====
+$UsedPhrases = New-Object System.Collections.Generic.HashSet[string]
 
 # ===== DANH SÁCH TỪ CẤM =====
 $ExcludeWords = @(
-    "translate","powershell","script","ps1","cd","dir","cls",
+    "translate","translation","translator",
+    "powershell","script","ps1","cmd","console",
+    "cd","dir","cls","clear","exit",
     "windows","system32","users","desktop","documents",
-    "program","files","local","appdata","profile"
+    "program","files","local","appdata","profile",
+    "github","google","http","https","www","api",
+    "function","param","return","object","string",
+    "host","name","rawui","window","size",
+    "foreach","while","true","false","null",
+    "write","foregroundcolor","newline",
+    "the","and","but","for","with","just","very","really"
 )
 
-# ===== HÀM WRAP (XUỐNG DÒNG KHI KÝ TỰ ĐẶC BIỆT + CHỮ HOA) =====
+# ===== PHÁT HIỆN CODE / SCRIPT (ĐÃ FIX) =====
+function Is-CodeText {
+    param ([string]$Text)
+
+    # Chuẩn hoá dash Unicode (– —) về -
+    $t = $Text -replace '[–—]', '-'
+
+    $score = 0
+
+    # Dấu hiệu code MẠNH
+    if ($t -match '\$[a-zA-Z_][a-zA-Z0-9_]*') { $score += 2 }
+    if ($t -match '\b(Add-Type|Write-Host|Invoke-|Get-|Set-|function|param|foreach|while|try|catch)\b') { $score += 2 }
+
+    # Dấu hiệu code TRUNG BÌNH
+    if ($t -match '^\s*#') { $score += 1 }
+    if ($t -match '\{\s*$') { $score += 1 }
+    if ($t -match ';\s*$') { $score += 1 }
+
+    # Chỉ coi là code khi ĐỦ mạnh
+    return ($score -ge 3)
+}
+
+# ===== WRAP TEXT =====
 function Write-WrappedText {
     param (
         [string]$Text,
@@ -21,21 +56,18 @@ function Write-WrappedText {
     $width = $Host.UI.RawUI.WindowSize.Width - 4
     if ($width -lt 40) { $width = 40 }
 
-    # Chuẩn hóa: chèn xuống dòng trước ký tự đặc biệt nếu sau nó là chữ HOA
-    $normalized = $Text -replace '([•\-\*\:\;→])\s*([A-Z])', "`n`$1 `$2"
-
-    $lines = $normalized -split "`r?`n"
+    $lines = $Text -split "`r?`n"
 
     foreach ($rawLine in $lines) {
         $words = $rawLine -split '\s+'
         $line = ""
 
-        foreach ($word in $words) {
-            if (($line.Length + $word.Length + 1) -gt $width) {
+        foreach ($w in $words) {
+            if (($line.Length + $w.Length + 1) -gt $width) {
                 Write-Host $line -ForegroundColor $Color
-                $line = $word
+                $line = $w
             } else {
-                if ($line) { $line += " " + $word } else { $line = $word }
+                if ($line) { $line += " $w" } else { $line = $w }
             }
         }
 
@@ -52,36 +84,86 @@ function Translate-Text {
     $encoded = [uri]::EscapeDataString($Text)
     $url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=vi&dt=t&dj=1&q=$encoded"
     $result = Invoke-RestMethod -Uri $url -TimeoutSec 10
+
+    if (-not $result.sentences) {
+        throw "Google Translate khong tra ve ket qua hop le"
+    }
+
     return ($result.sentences | ForEach-Object { $_.trans }) -join ""
 }
 
-# ===== LẤY TỪ NGẪU NHIÊN =====
-function Get-RandomWord {
+# ===== GHI LOG RA FILE =====
+function Write-TranslateLog {
+    param (
+        [string]$EN,
+        [string]$VI
+    )
+
+    $time = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+
+    $log = @"
+==============================
+TIME: $time
+
+EN:
+$EN
+
+VI:
+$VI
+==============================
+
+"@
+
+    Add-Content -Path $LogFile -Value $log -Encoding UTF8
+}
+
+# ===== LẤY CỤM 2 TỪ LIỀN KỀ =====
+function Get-RandomPhrase2 {
     param ([string]$Text)
 
-    if ($Text -match '^\s*(cd|dir|cls|\.\\|\.\/)') { return $null }
+    if (Is-CodeText $Text) { return $null }
 
-    $words = $Text.ToLower() `
-        -replace '[^a-z\s]', '' `
+    $rawWords = $Text.ToLower() `
+        -replace '[^a-z\s]', ' ' `
         -split '\s+' |
-        Where-Object {
-            $_.Length -ge 5 -and
-            ($ExcludeWords -notcontains $_)
-        }
+        Where-Object { $_ -ne "" }
 
-    if ($words.Count -eq 0) { return $null }
-    return Get-Random -InputObject $words
+    if ($rawWords.Count -lt 2) { return $null }
+
+    $phrases = @()
+
+    for ($i = 0; $i -lt $rawWords.Count - 1; $i++) {
+        $w1 = $rawWords[$i]
+        $w2 = $rawWords[$i + 1]
+
+        if (
+            $w1.Length -lt 3 -or
+            $w2.Length -lt 3 -or
+            $ExcludeWords -contains $w1 -or
+            $ExcludeWords -contains $w2
+        ) { continue }
+
+        $phrase = "$w1 $w2"
+
+        if (-not $UsedPhrases.Contains($phrase)) {
+            $phrases += $phrase
+        }
+    }
+
+    if ($phrases.Count -eq 0) { return $null }
+    return Get-Random -InputObject $phrases
 }
 
 # ===== HEADER =====
 function Show-Header {
-    Write-Host "=== Dich Clipboard (EN) + Tu Vung ===" -ForegroundColor Cyan
+    Write-Host "=== Dich Clipboard (EN) + Cum Tu ===" -ForegroundColor Cyan
     Write-Host "Boi den van ban tieng Anh -> Ctrl+C" -ForegroundColor DarkGray
     Write-Host "--------------------------------" -ForegroundColor DarkGray
 }
 
 Clear-Host
 Show-Header
+
 $lastText = ""
 
 while ($true) {
@@ -91,17 +173,21 @@ while ($true) {
     if ([string]::IsNullOrWhiteSpace($text)) { continue }
     if ($text -eq $lastText) { continue }
     if ($text.Length -gt 5000) { continue }
+    if (Is-CodeText $text) { continue }
 
     $lastText = $text
 
     try {
         $translated = Translate-Text $text
 
-        $word = Get-RandomWord $text
-        if ($word -and ($WordList.word -notcontains $word)) {
+        Write-TranslateLog -EN $text -VI $translated
+
+        $phrase = Get-RandomPhrase2 $text
+        if ($phrase) {
+            $UsedPhrases.Add($phrase) | Out-Null
             $WordList += [PSCustomObject]@{
-                word    = $word
-                meaning = (Translate-Text $word)
+                word    = $phrase
+                meaning = (Translate-Text $phrase)
             }
         }
 
@@ -116,7 +202,7 @@ while ($true) {
         Write-WrappedText $translated DarkGreen
 
         Write-Host ""
-        Write-Host "=== TU VUNG NGAU NHIEN ===" -ForegroundColor Yellow
+        Write-Host "=== CUM TU NGAU NHIEN ===" -ForegroundColor Yellow
         foreach ($item in $WordList | Select-Object -Last 8) {
             Write-Host ("• " + $item.word) -ForegroundColor Cyan -NoNewline
             Write-Host ("  →  " + $item.meaning) -ForegroundColor DarkGreen
@@ -126,5 +212,6 @@ while ($true) {
         Clear-Host
         Show-Header
         Write-Host "Loi khi dich!" -ForegroundColor Red
+        Write-Host $_ -ForegroundColor DarkRed
     }
 }
