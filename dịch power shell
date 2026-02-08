@@ -1,2 +1,6 @@
+
+if ($host.Name -eq "ConsoleHost") {
+    
 cd C:\Translate
 .\translate.ps1
+}
