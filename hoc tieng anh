@@ -1,0 +1,53 @@
+import time
+import random
+import pyperclip
+from pathlib import Path
+from datetime import datetime
+
+# ====== CONFIG ======
+SENTENCE_FILE = "sentences.txt"
+INTERVAL_MINUTES = 15      # <-- CUSTOM THỜI GIAN Ở ĐÂY
+# ====================
+
+
+def load_sentences(file_path):
+    path = Path(file_path)
+    if not path.exists():
+        print("❌ Không tìm thấy file sentences.txt")
+        return []
+
+    with open(path, "r", encoding="utf-8") as f:
+        return [line.strip() for line in f if line.strip()]
+
+
+def main():
+    sentences = load_sentences(SENTENCE_FILE)
+
+    if not sentences:
+        print("⚠️ File không có câu nào.")
+        return
+
+    print("📘 English random sentence timer started")
+    print(f"⏱️ Interval: {INTERVAL_MINUTES} minutes")
+    print("🟢 App đang chạy... (Ctrl + C để dừng)\n")
+
+    while True:
+        # 🎲 Random 1 câu mỗi vòng
+        sentence = random.choice(sentences)
+
+        # 📋 Copy vào clipboard
+        pyperclip.copy(sentence)
+
+        now = datetime.now().strftime("%H:%M:%S")
+        print(f"[{now}] Copied:")
+        print(f"   {sentence}\n")
+
+        # ⏳ Đợi tới lần tiếp theo
+        time.sleep(INTERVAL_MINUTES * 60)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\n⛔ Đã dừng bởi người dùng.")
