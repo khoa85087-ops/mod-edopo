@@ -1,0 +1,32 @@
+import subprocess
+import time
+import os
+from datetime import datetime
+
+REPO_DIR = r"C:\YoutubeSubApp"
+FILE_NAME = "suspicious_sessions.log"
+INTERVAL = 30  # seconds
+
+os.chdir(REPO_DIR)
+
+def run(cmd):
+    return subprocess.run(
+        cmd,
+        shell=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL
+    )
+
+print("Auto commit tool started...")
+
+while True:
+    # git diff --quiet
+    diff = run(f"git diff --quiet {FILE_NAME}")
+
+    if diff.returncode != 0:
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        run(f"git add {FILE_NAME}")
+        run(f'git commit -m "auto {ts}"')
+        run("git push")
+
+    time.sleep(INTERVAL)
