@@ -6,6 +6,11 @@ EDR-lite Production 2026 v20 - Final strong version
 - UNKNOWN_SOURCE +2 boost khi BEACON + FIRST_SEEN_DEST
 - Log grouped explanations: Network / Process / Behavior
 - Min samples 12, jitter 50%, duration 60s
+- Added file identity: size, creation time, modified time
+- Added persistence hints based on path
+- Added destination reuse/clustering logging
+- Added DNS entropy check for high entropy domains
+- Skipped ASN/Hosting tag as it requires external lookup not available in env
 """
 import psutil
 import time
@@ -20,6 +25,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 import statistics
 import re
+import math  # For entropy calculation
 
 # ================= CONFIG =================
 CHECK_INTERVAL = 5.0
@@ -28,7 +34,6 @@ LOG_FILE = "suspicious_sessions.log"
 LOG_MAX_SIZE = 10 * 1024 * 1024
 LOG_BACKUP = 5
 PROC_AGE_THRESHOLD = 600
-
 BEACON_JITTER_PCT = 0.50
 MIN_BEACON_SAMPLES = 12
 STRONG_BEACON_MIN_SAMPLES = 18
@@ -38,23 +43,18 @@ MAX_CV_THRESHOLD = 0.50
 MIN_CONSECUTIVE_RATIO = 0.75
 BURST_THRESHOLD = 3
 MIN_BYTES_FOR_EXFIL = 1024 * 50
-
 FIRST_SEEN_TTL = 864000  # 10 ngày
-
 SAFE_PORTS = {21, 22, 53, 80, 123, 443, 853, 3478, 5228, 8080, 8443, 1935, 19302,
               25, 465, 587, 143, 993, 110, 995, 1194, 51820, 5938, 10000, 10001, 3479, 3480}
-
 C2_COMMON_PORTS = {4444, 5555, 1337, 31337, 6666, 6667, 8000, 8089, 9001, 9002,
                    10443, 44300, 4433, 7443, 9999, 12345, 444, 7777, 8443, 8444, 8888, 3232,
                    11601, 40500, 27015, 27016, 2302, 7778, 28960, 6112, 6113, 3724, 3389}
-
 SUSPICIOUS_PATH_KEYWORDS = ["appdata", "temp", "\\roaming\\", "\\local\\", "downloads",
                             "\\public\\", "\\programdata\\", "\\users\\public\\", "edopro", "ygo", "duel"]
-
+PERSISTENCE_PATH_KEYWORDS = ["startup", "programdata", "appdata\\roaming", "appdata\\local\\temp"]  # Added for persistence hints
 FAKE_PROCESS_NAMES = ["svch0st", "expl0rer", "winlogin", "chrome_update", "rundll32x",
                       "mshta", "regsvr", "wscript", "cscript", "powershellx", "unknown.exe",
                       "bitsadmin", "certutil", "schtasks"]
-
 SAFE_PROCESS_PATHS = {
     "chrome.exe": ["\\google\\chrome\\", "\\chromium\\"],
     "msedge.exe": ["\\microsoft\\edge\\"],
@@ -75,7 +75,6 @@ SAFE_PROCESS_PATHS = {
     "winword.exe": ["\\microsoft office\\"],
     "excel.exe": ["\\microsoft office\\"],
 }
-
 SAFE_DOMAINS = {
     "akamai.net", "cloudflare.com", "cloudflare-dns.com", "amazonaws.com", "s3.amazonaws.com",
     "azureedge.net", "googleusercontent.com", "gstatic.com", "googleapis.com",
@@ -83,32 +82,41 @@ SAFE_DOMAINS = {
     "riotgames.com", "zalo.me", "zalo.cloud", "api.zalo.me", "vng.com.vn", "garena.com",
     "viettel.vn", "fpt.vn", "bkav.vn", "adobe.com", "nvidia.com", "apple.com", "icloud.com",
 }
-
 DENY_DEST_HOSTS = {
     "pastebin.com", "raw.githubusercontent.com", "githubusercontent.com", "controlc.com",
     "0bin.net", "hastebin.com", "github.io", "bit.ly", "ngrok.io", "tryhackme.com", "hackthebox.eu"
 }
+HIGH_ENTROPY_THRESHOLD = 3.5  # For DNS entropy flag
 
 # ================= LOGGING & GLOBALS =================
 handler = RotatingFileHandler(LOG_FILE, maxBytes=LOG_MAX_SIZE, backupCount=LOG_BACKUP, encoding="utf-8")
 handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
 logging.basicConfig(level=logging.INFO, handlers=[handler])
-
 active_sessions = {}
 beacon_stats = defaultdict(lambda: deque(maxlen=60))
 io_stats = defaultdict(lambda: deque(maxlen=60))
-seen_destinations = {}                  # (effective_key, ip) -> timestamp
+seen_destinations = {}  # (effective_key, ip) -> timestamp
 session_history = defaultdict(lambda: deque(maxlen=10))
 dns_cache = {}
 dns_lock = threading.Lock()
 dns_executor = ThreadPoolExecutor(max_workers=6)
 proc_cache = {}
 related_procs = defaultdict(set)
+dest_session_count = defaultdict(int)  # Destination -> session count
+process_per_ip = defaultdict(set)  # IP -> set of process names
 last_prune = time.time()
-
 print("EDR-lite Production 2026 v20 – final strong version started\n")
 
 # ================= HELPERS =================
+def calculate_entropy(domain):
+    if not domain:
+        return 0.0
+    from collections import Counter
+    freq = Counter(domain.lower())
+    length = len(domain)
+    entropy = -sum((count / length) * math.log2(count / length) for count in freq.values())
+    return entropy
+
 def resolve_ip(ip):
     with dns_lock:
         if ip in dns_cache and time.time() - dns_cache[ip][0] < 14400:
@@ -138,11 +146,20 @@ def get_proc_info(pid):
         return proc_cache[pid]
     try:
         p = psutil.Process(pid)
-        info = (p.name() or "N/A", p.exe() or "N/A", p.create_time(),
-                " ".join(p.cmdline() or [])[:350],
-                p.io_counters() if hasattr(p, 'io_counters') else None)
+        path = p.exe() or "N/A"
+        name = p.name() or "N/A"
+        create_time = p.create_time()
+        cmd = " ".join(p.cmdline() or [])[:350]
+        io_counters = p.io_counters() if hasattr(p, 'io_counters') else None
+        
+        # Added file identity
+        file_size = os.path.getsize(path) if os.path.exists(path) else "N/A"
+        file_ctime = os.path.getctime(path) if os.path.exists(path) else "N/A"
+        file_mtime = os.path.getmtime(path) if os.path.exists(path) else "N/A"
+        
+        info = (name, path, create_time, cmd, io_counters, file_size, file_ctime, file_mtime)
     except:
-        info = ("N/A", "N/A", time.time(), "N/A", None)
+        info = ("N/A", "N/A", time.time(), "N/A", None, "N/A", "N/A", "N/A")
     proc_cache[pid] = info
     return info
 
@@ -150,7 +167,7 @@ def get_session_key(pid, path, ip, port):
     if path and path != "N/A":
         key_str = f"{path.lower()}|{ip}|{port}"
     else:
-        name, _, _, cmd, _ = get_proc_info(pid)
+        name, _, _, cmd, _, _, _, _ = get_proc_info(pid)
         key_str = f"{name.lower()}|{cmd[:100]}|{ip}|{port}"
     return hashlib.sha256(key_str.encode()).hexdigest()
 
@@ -231,6 +248,18 @@ def classify_flags(port, ip, kind, host, name, path, dur, bytes_sent, bytes_recv
     elif host in {None, "Unknown", "Unknown/Timeout", ""} and not is_safe_domain:
         flags.add("DNS_FAIL")
         explanations["DNS_FAIL"] = "DNS resolution failed or timed out"
+    
+    # Added DNS entropy
+    if host and not re.match(r"^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$", host):
+        entropy = calculate_entropy(host)
+        if entropy > HIGH_ENTROPY_THRESHOLD:
+            flags.add("HIGH_DNS_ENTROPY")
+            explanations["HIGH_DNS_ENTROPY"] = f"High domain entropy: {entropy:.2f} (possible DGA)"
+    
+    # Added persistence hint
+    if any(k in path.lower() for k in PERSISTENCE_PATH_KEYWORDS):
+        flags.add("PERSISTENCE_HINT")
+        explanations["PERSISTENCE_HINT"] = "Path suggests possible persistence (check startup/registry)"
     
     return flags, explanations
 
@@ -320,6 +349,8 @@ def calc_severity(flags, strength, dur, first_seen=False, io_flags=set(), evolut
         "FIRST_SEEN_DEST": 6,
         "EVOLUTION_HIGH": 10,
         "UNKNOWN_SOURCE": 3,
+        "HIGH_DNS_ENTROPY": 6,  # Added
+        "PERSISTENCE_HINT": 5,  # Added
     }
     
     score = sum(weights.get(f, 1) for f in flags) + boost
@@ -364,12 +395,12 @@ while True:
                 bkey = (ip, port, kind)
                 beacon_stats[bkey].append(now)
                 
-                _, _, _, _, io_counter = get_proc_info(conn.pid)
+                _, _, _, _, io_counter, _, _, _ = get_proc_info(conn.pid)
                 if io_counter:
                     io_stats[bkey].append((io_counter.write_bytes, io_counter.read_bytes))
                 
                 if key not in active_sessions:
-                    name, path, pstart, cmd, _ = get_proc_info(conn.pid)
+                    name, path, pstart, cmd, _, file_size, file_ctime, file_mtime = get_proc_info(conn.pid)
                     host = resolve_ip(ip) or "Unknown"
                     if is_safe_process(name, path, host):
                         continue
@@ -377,13 +408,14 @@ while True:
                         "app": name, "path": path, "parent": get_parent_chain(conn.pid),
                         "cmd": cmd, "ip": ip, "port": port, "kind": kind.upper(),
                         "start": now, "proc_start": pstart,
-                        "bytes_sent": 0, "bytes_recv": 0, "host": host
+                        "bytes_sent": 0, "bytes_recv": 0, "host": host,
+                        "file_size": file_size, "file_ctime": file_ctime, "file_mtime": file_mtime
                     }
         
         for key in list(active_sessions):
             if key in seen:
                 pid = key[0]
-                _, _, _, _, io_counter = get_proc_info(pid)
+                _, _, _, _, io_counter, _, _, _ = get_proc_info(pid)
                 if io_counter:
                     active_sessions[key]["bytes_sent"] = io_counter.write_bytes
                     active_sessions[key]["bytes_recv"] = io_counter.read_bytes
@@ -391,10 +423,14 @@ while True:
         for key, sess in current_conns.items():
             if key not in active_sessions:
                 active_sessions[key] = sess
-   
+                # Update clustering
+                dest_key = get_effective_dest_key(sess["host"], sess["ip"])
+                dest_session_count[dest_key] += 1
+                process_per_ip[sess["ip"]].add(sess["app"])
+    
     except Exception as e:
         logging.error(f"scan error: {e}")
-   
+    
     finished = []
     for k, s in list(active_sessions.items()):
         if k not in seen:
@@ -452,18 +488,21 @@ while True:
             beh_exp = []
             
             for flag, exp in sorted(explanations.items()):
-                if flag in {"C2_PORT", "PUBLIC_NONSTD", "SUSPICIOUS_UDP", "DENYLIST_HOST", "RAW_IP", "DNS_FAIL", "FIRST_SEEN_DEST"}:
-                    net_exp.append(f"  - {flag}: {exp}")
-                elif flag in {"FAKE_NAME", "SUSPICIOUS_PATH", "NEW_PROCESS", "UNKNOWN_SOURCE", "LONG_DURATION"}:
-                    proc_exp.append(f"  - {flag}: {exp}")
+                if flag in {"C2_PORT", "PUBLIC_NONSTD", "SUSPICIOUS_UDP", "DENYLIST_HOST", "RAW_IP", "DNS_FAIL", "FIRST_SEEN_DEST", "HIGH_DNS_ENTROPY"}:
+                    net_exp.append(f" - {flag}: {exp}")
+                elif flag in {"FAKE_NAME", "SUSPICIOUS_PATH", "NEW_PROCESS", "UNKNOWN_SOURCE", "LONG_DURATION", "PERSISTENCE_HINT"}:
+                    proc_exp.append(f" - {flag}: {exp}")
                 else:
-                    beh_exp.append(f"  - {flag}: {exp}")
+                    beh_exp.append(f" - {flag}: {exp}")
             
             # Xác định loại suspicious chính
             susp_type = "Behavior"
             if beh_exp: susp_type = "Behavior"
             elif net_exp: susp_type = "Network"
             elif proc_exp: susp_type = "Process"
+            
+            dest_key = get_effective_dest_key(s["host"], s["ip"])
+            clustering_info = f"Destination seen on {dest_session_count[dest_key]} sessions | Same IP used by {len(process_per_ip[s['ip']])} processes"
             
             msg = [
                 f"[{sev}] Suspicious Session Detected | Score: {score} | Type: {susp_type} dominant | Evolution: {current_level} | Boost: {boost}",
@@ -472,6 +511,8 @@ while True:
                 f"Parent chain: {s['parent']}{related}",
                 f"Command line: {s['cmd'][:300]}{'...' if len(s['cmd']) > 300 else ''}",
                 f"Executable path: {s['path']}",
+                f"File info: Size={s['file_size']:,} bytes | Created={time.ctime(s['file_ctime']) if s['file_ctime'] != 'N/A' else 'N/A'} | Modified={time.ctime(s['file_mtime']) if s['file_mtime'] != 'N/A' else 'N/A'}",
+                f"Clustering: {clustering_info}",
                 f"Flags: {', '.join(sorted(flags))}",
                 "",
                 "Explanations (grouped):",
@@ -490,14 +531,14 @@ while True:
             
             logging.warning("\n".join(msg))
             finished.append(k)
-   
+    
     for k in finished:
         active_sessions.pop(k, None)
-   
+    
     if now - last_prune > 300:
         proc_cache.clear()
         dns_cache = {k: v for k, v in dns_cache.items() if now - v[0] < 28800}
         seen_destinations = {k: ts for k, ts in seen_destinations.items() if now - ts < FIRST_SEEN_TTL}
         last_prune = now
-   
+    
     time.sleep(CHECK_INTERVAL)
