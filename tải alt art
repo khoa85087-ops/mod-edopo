@@ -1,0 +1,57 @@
+$PAGE_SIZE = 1000
+$OFFSET    = 0
+$PIC_DIR   = "picr"
+$ALT_ID_LIST = "alt_art_list.txt"
+
+# tạo thư mục ảnh
+if (-not (Test-Path $PIC_DIR)) {
+    New-Item -ItemType Directory -Path $PIC_DIR | Out-Null
+}
+
+# xóa file danh sách cũ
+if (Test-Path $ALT_ID_LIST) {
+    Remove-Item $ALT_ID_LIST
+}
+
+while ($true) {
+
+    $url = "https://db.ygoprodeck.com/api/v7/cardinfo.php?num=$PAGE_SIZE&offset=$OFFSET"
+    Write-Host "Dang lay du lieu offset $OFFSET ..."
+
+    try {
+        $resp = Invoke-RestMethod -Uri $url -TimeoutSec 60
+    } catch {
+        Write-Host "Loi ket noi API"
+        break
+    }
+
+    if (-not $resp.data -or $resp.data.Count -eq 0) {
+        Write-Host "Hoan tat!"
+        break
+    }
+
+    foreach ($card in $resp.data) {
+
+        if ($card.card_images -and $card.card_images.Count -gt 1) {
+
+            for ($i = 1; $i -lt $card.card_images.Count; $i++) {
+
+                $img = $card.card_images[$i]
+                $out = "$PIC_DIR\$($img.id).jpg"
+
+                # lưu id alt art
+                "$($card.name) | ALT_ID: $($img.id)" | Out-File -FilePath $ALT_ID_LIST -Append -Encoding utf8
+
+                # tải ảnh
+                if (-not (Test-Path $out)) {
+                    try {
+                        Invoke-WebRequest -Uri $img.image_url -OutFile $out -TimeoutSec 60
+                        Write-Host "Downloaded $($img.id)"
+                    } catch {}
+                }
+            }
+        }
+    }
+
+    $OFFSET += $PAGE_SIZE
+}
