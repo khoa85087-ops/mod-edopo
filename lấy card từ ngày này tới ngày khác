@@ -3,8 +3,8 @@
 # Lưu ảnh vào thư mục picr
 # Đồng thời lưu JSON tổng
 
-$START_DATE = "2025-11-12"
-$END_DATE   = "2026-01-20"
+$START_DATE = "2026-02-26
+$END_DATE   = "xxxx-xx-xx"
 $PAGE_SIZE  = 100
 $OFFSET     = 0
 $PIC_DIR    = "picr"
